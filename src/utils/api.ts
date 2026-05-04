@@ -34,13 +34,17 @@ export const fetchStockPrices = async (tickers: string[]): Promise<Record<string
           if (!result) continue;
 
           const meta = result.meta;
-          const currentPrice = meta.regularMarketPrice;
-          const previousClose = meta.chartPreviousClose;
+          // regularMarketPrice가 없을 경우 이전 종가나 다른 필드 확인
+          const currentPrice = meta.regularMarketPrice || meta.chartPreviousClose || 0;
+          if (currentPrice === 0) continue;
+
+          const previousClose = meta.chartPreviousClose || currentPrice;
           const change = currentPrice - previousClose;
-          const changePercent = (change / previousClose) * 100;
+          const changePercent = previousClose !== 0 ? (change / previousClose) * 100 : 0;
           
           // 히스토리 데이터 추출 (최근 5일 종가)
-          const history = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null) || [];
+          // null 값이나 0원인 데이터 필터링 강화
+          const history = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null && p > 0) || [];
           
           prices[ticker] = {
             ticker,
@@ -52,12 +56,13 @@ export const fetchStockPrices = async (tickers: string[]): Promise<Record<string
           };
           success = true;
         } catch (err) {
-          // 에러 무시하고 다음 프록시 시도
+          console.warn(`Proxy ${proxyUrl} failed for ${ticker}:`, err);
         }
       }
 
       if (!success) {
-        prices[ticker] = { ticker, price: 0, change: 0, changePercent: 0, previousClose: 0 };
+        console.error(`All proxies failed for ${ticker}`);
+        prices[ticker] = { ticker, price: 0, change: 0, changePercent: 0, previousClose: 0, history: [] };
       }
 
       // 프록시 서버의 Rate-limit(동시접속 차단) 방지를 위해 다음 종목 요청 전 1초 대기 (마지막 종목 제외)
