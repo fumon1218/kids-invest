@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, defaultUserData } from './data';
-import type { Stock, UserData, StockPrice, Transaction } from './types';
+import type { Stock, UserData, StockPrice, Transaction, Mission } from './types';
 import { fetchStockPrices } from './utils/api';
 import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy } from 'lucide-react';
 import clsx from 'clsx';
