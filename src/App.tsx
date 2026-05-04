@@ -14,11 +14,13 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const [stocks] = useState<Stock[]>(initialStocks);
   const [userData, setUserData] = useState<UserData>(defaultUserData);
   const [livePrices, setLivePrices] = useState<Record<string, StockPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'portfolio' | 'history'>('portfolio');
+
+  // 기본 종목과 사용자 추가 종목 합치기
+  const allStocks = [...initialStocks, ...(userData.customStocks || [])];
 
   // 인증 상태 감지
   useEffect(() => {
@@ -76,7 +78,7 @@ export default function App() {
   // 주가 새로고침
   const refreshData = async () => {
     setIsLoading(true);
-    const tickers = stocks.map(s => s.ticker);
+    const tickers = allStocks.map(s => s.ticker);
     const prices = await fetchStockPrices(tickers);
     setLivePrices(prices);
     setIsLoading(false);
@@ -84,9 +86,9 @@ export default function App() {
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(refreshData, 60000); // 1분마다 갱신
+    const interval = setInterval(refreshData, 60000);
     return () => clearInterval(interval);
-  }, [stocks]);
+  }, [userData.customStocks]); // 커스텀 종목 추가 시에도 갱신하도록 수정
 
   // 배당금 로직
   useEffect(() => {
@@ -137,7 +139,7 @@ export default function App() {
     if (Object.keys(livePrices).length > 0) {
       checkAndPayDividends();
     }
-  }, [livePrices, userData.lastDividendMonth, userData.portfolio, stocks, isAuthChecking]);
+  }, [livePrices, userData.lastDividendMonth, userData.portfolio, allStocks, isAuthChecking]);
 
   // 매수 함수
   const buyStock = (ticker: string, price: number) => {
@@ -147,7 +149,7 @@ export default function App() {
       return;
     }
     
-    const stockInfo = stocks.find(s => s.ticker === ticker);
+    const stockInfo = allStocks.find(s => s.ticker === ticker);
     const note = prompt(`${stockInfo?.name}을(를) 매수하는 이유를 적어주세요!`, '') || '';
     
     const newTransaction: Transaction = {
@@ -198,7 +200,7 @@ export default function App() {
       return;
     }
 
-    const stockInfo = stocks.find(s => s.ticker === ticker);
+    const stockInfo = allStocks.find(s => s.ticker === ticker);
     const profit = price - portfolioItem.averagePrice;
     const note = prompt(`${stockInfo?.name}을(를) 매도하는 이유를 적어주세요!`, '') || '';
     
@@ -280,13 +282,45 @@ export default function App() {
   const handleResetData = () => {
     if (confirm('모든 투자 데이터와 보유 현금을 완전히 초기화(0원)하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
       if (user) {
-        saveUserDataToDB(user.uid, { ...defaultUserData, balance: 0 });
+        saveUserDataToDB(user.uid, { ...defaultUserData, balance: 0, customStocks: [] });
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
-      setUserData({ ...defaultUserData, balance: 0 });
+      setUserData({ ...defaultUserData, balance: 0, customStocks: [] });
       alert('모든 데이터가 초기화되었습니다. 용돈을 입금하여 투자를 다시 시작하세요!');
     }
+  };
+
+  // 새로운 종목 추가 함수
+  const addNewStock = () => {
+    const name = prompt('추가할 종목 이름을 입력하세요 (예: 삼성전자)', '');
+    if (!name) return;
+    
+    const ticker = prompt('종목의 티커를 입력하세요\n(코스피는 .KS, 코스닥은 .KQ를 붙여주세요)\n예: 005930.KS', '');
+    if (!ticker) return;
+
+    if (allStocks.some(s => s.ticker === ticker)) {
+      alert('이미 추가된 종목입니다.');
+      return;
+    }
+
+    const yieldStr = prompt('연 배당률(%)을 입력하세요 (없으면 0)', '0');
+    const dividendYield = parseFloat(yieldStr || '0');
+
+    const newStock: Stock = {
+      id: Date.now().toString(),
+      name,
+      ticker,
+      dividendYield,
+      icon: '📈'
+    };
+
+    setUserData(prev => ({
+      ...prev,
+      customStocks: [...(prev.customStocks || []), newStock]
+    }));
+
+    alert(`'${name}' 종목이 추가되었습니다! 주가를 불러오는 중입니다...`);
   };
 
   const returns = calculateTotalReturn();
@@ -296,7 +330,7 @@ export default function App() {
     { name: '현금', value: userData.balance }
   ];
   userData.portfolio.forEach(item => {
-    const stockInfo = stocks.find(s => s.ticker === item.ticker);
+    const stockInfo = allStocks.find(s => s.ticker === item.ticker);
     const livePrice = livePrices[item.ticker]?.price || item.averagePrice;
     const currentValue = item.shares * livePrice;
     if (currentValue > 0) {
@@ -469,12 +503,15 @@ export default function App() {
               <h3 className="font-semibold text-lg flex items-center gap-2">
                 실시간 시장 현황
               </h3>
-              <span className="text-xs text-slate-500 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" /> Yahoo Finance 기준
-              </span>
+              <button 
+                onClick={addNewStock}
+                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-white/10 transition flex items-center gap-1"
+              >
+                <PlusCircle className="w-3 h-3" /> 종목 추가
+              </button>
             </div>
 
-            {stocks.map(stock => {
+            {allStocks.map(stock => {
               const live = livePrices[stock.ticker];
               const isUp = live?.change >= 0;
               const portfolioItem = userData.portfolio.find(p => p.ticker === stock.ticker);
@@ -584,7 +621,7 @@ export default function App() {
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.3.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.4.0</span>
       </div>
     </div>
   );

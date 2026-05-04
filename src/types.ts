@@ -37,4 +37,5 @@ export interface UserData {
   portfolio: PortfolioItem[];
   transactions: Transaction[];
   lastDividendMonth: number; // e.g., 202605
+  customStocks?: Stock[];
 }
