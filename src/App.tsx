@@ -496,6 +496,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 우측 하단 버전 정보 표시 */}
+      <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
+        <span className="text-[10px] font-medium text-slate-500/50">v1.0.0</span>
+      </div>
     </div>
   );
 }
