@@ -23,7 +23,7 @@ export const STOCKS_STORAGE_KEY = 'kids_invest_stocks_data';
 
 // 기본 유저 데이터
 export const defaultUserData = {
-  balance: 100000, // 기본 지급금 10만원
+  balance: 0, // 기본 지급금 0원 (자율 입금)
   portfolio: [],
   transactions: [],
   lastDividendMonth: 0

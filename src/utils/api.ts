@@ -1,45 +1,57 @@
 import type { StockPrice } from '../types';
 
-// 야후 파이낸스 API에서 주가 정보를 가져오는 유틸리티 (CORS 프록시 사용)
 export const fetchStockPrices = async (tickers: string[]): Promise<Record<string, StockPrice>> => {
   const prices: Record<string, StockPrice> = {};
   
   try {
-    // 병렬로 모든 종목 주가 요청
     const promises = tickers.map(async (ticker) => {
-      const targetUrl = encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`);
-      // allorigins 프록시를 통해 CORS 우회 (raw 모드)
-      const proxyUrl = `https://api.allorigins.win/raw?url=${targetUrl}`;
+      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
       
-      try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
-        
-        const data = await response.json();
-        const result = data.chart.result[0];
-        
-        const meta = result.meta;
-        const currentPrice = meta.regularMarketPrice;
-        const previousClose = meta.chartPreviousClose;
-        const change = currentPrice - previousClose;
-        const changePercent = (change / previousClose) * 100;
-        
+      // 여러 프록시를 순차적으로 시도합니다.
+      const proxies = [
+        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+      ];
+
+      let success = false;
+      
+      for (const proxyUrl of proxies) {
+        if (success) break;
+        try {
+          const response = await fetch(proxyUrl);
+          if (!response.ok) continue;
+          
+          let data = await response.json();
+          // allorigins의 /get 엔드포인트는 contents 안에 원본 텍스트가 있습니다.
+          if (data.contents) {
+            data = JSON.parse(data.contents);
+          }
+          
+          const result = data.chart?.result?.[0];
+          if (!result) continue;
+
+          const meta = result.meta;
+          const currentPrice = meta.regularMarketPrice;
+          const previousClose = meta.chartPreviousClose;
+          const change = currentPrice - previousClose;
+          const changePercent = (change / previousClose) * 100;
+          
+          prices[ticker] = {
+            ticker,
+            price: currentPrice,
+            change: change,
+            changePercent: changePercent,
+            previousClose: previousClose
+          };
+          success = true;
+        } catch (err) {
+          // 다음 프록시 시도
+        }
+      }
+
+      if (!success) {
         prices[ticker] = {
-          ticker,
-          price: currentPrice,
-          change: change,
-          changePercent: changePercent,
-          previousClose: previousClose
-        };
-      } catch (err) {
-        console.error(`Error fetching data for ${ticker}:`, err);
-        // 에러 발생 시 임시 데이터 반환 (UI 다운 방지)
-        prices[ticker] = {
-          ticker,
-          price: 0,
-          change: 0,
-          changePercent: 0,
-          previousClose: 0
+          ticker, price: 0, change: 0, changePercent: 0, previousClose: 0
         };
       }
     });

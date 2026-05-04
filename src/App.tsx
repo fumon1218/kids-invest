@@ -242,6 +242,14 @@ export default function App() {
     };
   };
 
+  const handleResetData = () => {
+    if (confirm('모든 투자 데이터와 보유 현금을 완전히 초기화(0원)하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      setUserData({ ...defaultUserData, balance: 0 });
+      alert('모든 데이터가 초기화되었습니다. 용돈을 입금하여 투자를 다시 시작하세요!');
+    }
+  };
+
   const returns = calculateTotalReturn();
 
   return (
@@ -256,9 +264,14 @@ export default function App() {
             키즈 인베스트
           </h1>
         </div>
-        <button onClick={refreshData} disabled={isLoading} className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition">
-          <RefreshCw className={clsx("w-5 h-5 text-slate-300", isLoading && "animate-spin")} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleResetData} title="모든 데이터 초기화" className="p-2 bg-slate-800 rounded-full hover:bg-danger/20 hover:text-danger transition text-slate-400">
+            <AlertCircle className="w-5 h-5" />
+          </button>
+          <button onClick={refreshData} disabled={isLoading} title="주가 새로고침" className="p-2 bg-slate-800 rounded-full hover:bg-slate-700 transition">
+            <RefreshCw className={clsx("w-5 h-5 text-slate-300", isLoading && "animate-spin")} />
+          </button>
+        </div>
       </header>
 
       <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
