@@ -39,6 +39,13 @@ export interface UserData {
   lastDividendMonth: number; // e.g., 202605
   customStocks?: Stock[];
   missions?: Mission[];
+  assetHistory?: AssetHistoryItem[];
+  lastQuizDate?: string; // YYYY-MM-DD
+}
+
+export interface AssetHistoryItem {
+  date: string; // YYYY-MM-DD
+  value: number;
 }
 
 export interface Mission {

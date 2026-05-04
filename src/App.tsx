@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, defaultUserData } from './data';
 import type { Stock, UserData, StockPrice, Transaction, Mission } from './types';
 import { fetchStockPrices } from './utils/api';
-import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy, Lightbulb, BookOpen, Newspaper } from 'lucide-react';
 import clsx from 'clsx';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
@@ -17,7 +17,8 @@ export default function App() {
   const [userData, setUserData] = useState<UserData>(defaultUserData);
   const [livePrices, setLivePrices] = useState<Record<string, StockPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'history' | 'missions'>('portfolio');
+  const [activeTab, setActiveTab] = useState<'portfolio' | 'history' | 'missions' | 'education'>('portfolio');
+  const [showQuiz, setShowQuiz] = useState(false);
 
   // 기본 종목과 사용자 추가 종목 합치기
   const allStocks = [...initialStocks, ...(userData.customStocks || [])];
@@ -138,8 +139,71 @@ export default function App() {
 
     if (Object.keys(livePrices).length > 0) {
       checkAndPayDividends();
+      recordAssetHistory();
     }
   }, [livePrices, userData.lastDividendMonth, userData.portfolio, allStocks, isAuthChecking]);
+
+  // 자산 히스토리 기록
+  const recordAssetHistory = () => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const { currentValue } = calculateTotalReturn();
+    const totalAsset = userData.balance + currentValue;
+
+    const history = userData.assetHistory || [];
+    const lastEntry = history[history.length - 1];
+
+    if (!lastEntry || lastEntry.date !== today) {
+      setUserData(prev => ({
+        ...prev,
+        assetHistory: [...(prev.assetHistory || []), { date: today, value: totalAsset }].slice(-30) // 최근 30일만 저장
+      }));
+    }
+  };
+
+  const quizzes = [
+    { q: "주식을 사면 그 회사의 주인이 되는 것일까요?", a: true, hint: "주식은 회사의 소유권을 나타내는 증서예요." },
+    { q: "은행에 예금을 하면 이자를 받을 수 있나요?", a: true, hint: "은행은 돈을 빌려준 대가로 이자를 줘요." },
+    { q: "물가가 오르면 같은 돈으로 더 많은 물건을 살 수 있나요?", a: false, hint: "물가가 오르면 돈의 가치가 떨어져서 더 적게 사게 돼요." },
+    { q: "복리란 이자에 또 이자가 붙는 것을 말하나요?", a: true, hint: "복리는 시간이 지날수록 돈이 눈덩이처럼 불어나게 해요." },
+    { q: "분산 투자는 '계란을 한 바구니에 담지 마라'는 뜻인가요?", a: true, hint: "위험을 나누기 위해 여러 곳에 나누어 투자하는 것이 좋다는 뜻이에요." }
+  ];
+
+  const handleQuizAnswer = (answer: boolean) => {
+    const today = new Date().toISOString().split('T')[0];
+    const quizIdx = new Date().getDate() % quizzes.length;
+    const correct = quizzes[quizIdx].a === answer;
+
+    if (correct) {
+      const reward = 1000;
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        date: Date.now(),
+        type: 'DEPOSIT',
+        amount: reward,
+        description: '일일 경제 퀴즈 정답 보상'
+      };
+      setUserData(prev => ({
+        ...prev,
+        balance: prev.balance + reward,
+        lastQuizDate: today,
+        transactions: [newTransaction, ...prev.transactions]
+      }));
+      alert(`정답입니다! 🎉 보상으로 ${reward.toLocaleString()}원이 지급되었습니다!`);
+    } else {
+      alert("아쉬워요! 내일 다시 도전해보세요. 💡 힌트: " + quizzes[quizIdx].hint);
+      setUserData(prev => ({ ...prev, lastQuizDate: today }));
+    }
+    setShowQuiz(false);
+  };
+
+  const news = [
+    "어린이 경제 신문: '용돈 아껴 투자하는 아이들이 늘고 있어요!'",
+    "시장 소식: '코스피 지수가 오늘 활짝 웃었습니다.'",
+    "전문가 조언: '주식 투자는 공부와 기다림이 가장 중요해요.'",
+    "배당금 소식: '꾸준히 배당을 주는 착한 기업들이 주목받고 있습니다.'",
+    "경제 상식: '금리가 오르면 은행 예금이 인기를 얻게 됩니다.'"
+  ];
 
   // 매수 함수
   const buyStock = (ticker: string, price: number) => {
@@ -610,6 +674,12 @@ export default function App() {
           >
             <Trophy className="w-4 h-4" /> 미션
           </button>
+          <button 
+            onClick={() => setActiveTab('education')}
+            className={clsx("flex-1 py-3 text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition", activeTab === 'education' ? "bg-slate-700 text-white shadow" : "text-slate-400 hover:text-slate-200")}
+          >
+            <BookOpen className="w-4 h-4" /> 교육
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -804,11 +874,98 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {activeTab === 'education' && (
+          <div className="space-y-6">
+            {/* Daily Quiz Section */}
+            <div className="glass-panel p-5 rounded-3xl border-l-4 border-l-yellow-400">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg flex items-center gap-2 text-yellow-400">
+                  <Lightbulb className="w-5 h-5" /> 일일 경제 퀴즈
+                </h3>
+                {userData.lastQuizDate === new Date().toISOString().split('T')[0] ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full font-bold">오늘 참여 완료</span>
+                ) : (
+                  <span className="text-[10px] bg-yellow-400/20 text-yellow-400 px-2 py-1 rounded-full font-bold animate-pulse">오늘의 퀴즈 도착!</span>
+                )}
+              </div>
+              
+              {userData.lastQuizDate !== new Date().toISOString().split('T')[0] ? (
+                <div className="space-y-4">
+                  <p className="text-white font-medium text-lg leading-relaxed">
+                    {quizzes[new Date().getDate() % quizzes.length].q}
+                  </p>
+                  <div className="flex gap-3">
+                    <button onClick={() => handleQuizAnswer(true)} className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 rounded-xl font-bold transition shadow-lg shadow-emerald-500/20">O (그렇다)</button>
+                    <button onClick={() => handleQuizAnswer(false)} className="flex-1 py-3 bg-danger hover:bg-danger-hover rounded-xl font-bold transition shadow-lg shadow-danger/20">X (아니다)</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm">오늘의 퀴즈를 이미 풀었습니다. 내일 다시 만나요!</p>
+              )}
+            </div>
+
+            {/* News Feed Section */}
+            <div className="glass-panel p-5 rounded-3xl">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-blue-400 mb-4">
+                <Newspaper className="w-5 h-5" /> 오늘의 경제 소식
+              </h3>
+              <div className="space-y-3">
+                {news.map((n, i) => (
+                  <div key={i} className="p-3 bg-white/5 rounded-xl text-sm border border-white/5 hover:bg-white/10 transition cursor-pointer">
+                    {n}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Asset Growth Chart Section */}
+            <div className="glass-panel p-5 rounded-3xl overflow-hidden">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-emerald-400 mb-4">
+                <TrendingUp className="w-5 h-5" /> 내 자산 성장 그래프
+              </h3>
+              <div className="h-48 w-full -ml-6">
+                {(userData.assetHistory || []).length < 2 ? (
+                  <div className="h-full flex items-center justify-center text-slate-500 text-xs text-center px-10">
+                    데이터가 쌓이고 있어요! 매일 앱에 들어와 자산의 변화를 확인해보세요.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="110%" height="100%">
+                    <LineChart data={userData.assetHistory}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        hide 
+                      />
+                      <YAxis 
+                        hide 
+                        domain={['auto', 'auto']}
+                      />
+                      <RechartsTooltip 
+                        formatter={(value: any) => [value.toLocaleString() + '원', '총 자산']}
+                        labelFormatter={(label) => `날짜: ${label}`}
+                        contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#f8fafc' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#10b981" 
+                        strokeWidth={3} 
+                        dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }} 
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.6.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.7.0</span>
       </div>
     </div>
   );
