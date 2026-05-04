@@ -102,7 +102,7 @@ export default function App() {
         let totalDividend = 0;
         
         userData.portfolio.forEach(item => {
-          const stockInfo = stocks.find(s => s.ticker === item.ticker);
+          const stockInfo = allStocks.find((s: Stock) => s.ticker === item.ticker);
           if (stockInfo && item.shares > 0) {
             const annualYield = stockInfo.dividendYield || 0;
             const livePrice = livePrices[item.ticker]?.price || item.averagePrice;
