@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, defaultUserData } from './data';
 import type { Stock, UserData, StockPrice, Transaction } from './types';
 import { fetchStockPrices } from './utils/api';
-import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon } from 'lucide-react';
 import clsx from 'clsx';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { auth, googleProvider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
@@ -285,6 +286,23 @@ export default function App() {
 
   const returns = calculateTotalReturn();
 
+  // 포트폴리오 비중 차트 데이터 생성
+  const pieData = [
+    { name: '현금', value: userData.balance }
+  ];
+  userData.portfolio.forEach(item => {
+    const stockInfo = stocks.find(s => s.ticker === item.ticker);
+    const livePrice = livePrices[item.ticker]?.price || item.averagePrice;
+    const currentValue = item.shares * livePrice;
+    if (currentValue > 0) {
+      pieData.push({ name: stockInfo?.name || item.ticker, value: currentValue });
+    }
+  });
+  
+  // 비중이 0인 항목 제외 및 파이 차트 색상 지정
+  const activePieData = pieData.filter(d => d.value > 0);
+  const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
+
   if (isAuthChecking) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-white">로딩 중...</div>;
   }
@@ -372,6 +390,56 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* Portfolio Allocation Chart */}
+        {activePieData.length > 0 && (
+          <div className="glass-panel p-5 rounded-3xl">
+            <h3 className="font-semibold text-sm text-slate-300 flex items-center gap-2 mb-4">
+              <PieChartIcon className="w-4 h-4 text-purple-400" />
+              내 자산 포트폴리오 비중
+            </h3>
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={activePieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {activePieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    formatter={(value: number) => [`${value.toLocaleString()}원`, '평가 금액']}
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                    itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            
+            {/* 범례 (Legend) */}
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-2">
+              {activePieData.map((entry, index) => {
+                const total = activePieData.reduce((sum, item) => sum + item.value, 0);
+                const percent = total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0.0';
+                
+                return (
+                  <div key={`legend-${index}`} className="flex items-center gap-1.5 text-xs font-medium text-slate-300">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
+                    {entry.name} ({percent}%)
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 p-1 bg-slate-800/50 rounded-2xl">
@@ -510,7 +578,7 @@ export default function App() {
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.1.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.2.0</span>
       </div>
     </div>
   );
