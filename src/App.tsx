@@ -18,7 +18,6 @@ export default function App() {
   const [livePrices, setLivePrices] = useState<Record<string, StockPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'portfolio' | 'history' | 'missions' | 'education'>('portfolio');
-  const [showQuiz, setShowQuiz] = useState(false);
 
   // 기본 종목과 사용자 추가 종목 합치기
   const allStocks = [...initialStocks, ...(userData.customStocks || [])];
@@ -194,7 +193,7 @@ export default function App() {
       alert("아쉬워요! 내일 다시 도전해보세요. 💡 힌트: " + quizzes[quizIdx].hint);
       setUserData(prev => ({ ...prev, lastQuizDate: today }));
     }
-    setShowQuiz(false);
+
   };
 
   const news = [
