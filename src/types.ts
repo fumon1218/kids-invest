@@ -12,6 +12,7 @@ export interface StockPrice {
   change: number;
   changePercent: number;
   previousClose: number;
+  history?: number[];
 }
 
 export interface PortfolioItem {

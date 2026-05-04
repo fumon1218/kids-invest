@@ -10,7 +10,7 @@ export const fetchStockPrices = async (tickers: string[]): Promise<Record<string
   try {
     for (let i = 0; i < tickers.length; i++) {
       const ticker = tickers[i];
-      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
+      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5d`;
       
       const proxies = [
         `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
@@ -26,7 +26,6 @@ export const fetchStockPrices = async (tickers: string[]): Promise<Record<string
           if (!response.ok) continue;
           
           let data = await response.json();
-          // allorigins의 경우 contents 안에 문자열로 들어있음
           if (data.contents) {
             data = JSON.parse(data.contents);
           }
@@ -40,12 +39,16 @@ export const fetchStockPrices = async (tickers: string[]): Promise<Record<string
           const change = currentPrice - previousClose;
           const changePercent = (change / previousClose) * 100;
           
+          // 히스토리 데이터 추출 (최근 5일 종가)
+          const history = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null) || [];
+          
           prices[ticker] = {
             ticker,
             price: currentPrice,
             change: change,
             changePercent: changePercent,
-            previousClose: previousClose
+            previousClose: previousClose,
+            history: history
           };
           success = true;
         } catch (err) {

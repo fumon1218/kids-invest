@@ -827,16 +827,35 @@ export default function App() {
 
               return (
                 <div key={stock.ticker} className="glass-panel p-4 rounded-2xl flex flex-col gap-4">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center text-xl shadow-inner border border-white/5">
                         {stock.icon}
                       </div>
                       <div>
                         <h4 className="font-bold text-lg leading-tight">{stock.name}</h4>
-                        <p className="text-xs text-slate-400 mt-0.5">{stock.ticker} · 연 배당률 {stock.dividendYield}%</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{stock.ticker}</p>
                       </div>
                     </div>
+
+                    {/* Mini Sparkline Chart */}
+                    <div className="flex-1 h-8 mx-4 hidden sm:block">
+                      {live?.history && live.history.length > 0 && (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={live.history.map((val, idx) => ({ idx, val }))}>
+                            <Line 
+                              type="monotone" 
+                              dataKey="val" 
+                              stroke={isUp ? "#ef4444" : "#3b82f6"} 
+                              strokeWidth={2} 
+                              dot={false} 
+                              isAnimationActive={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
                     <div className="text-right">
                       {live ? (
                         <>
@@ -1152,7 +1171,7 @@ export default function App() {
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v2.0.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v2.1.0</span>
       </div>
     </div>
   );
