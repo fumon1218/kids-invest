@@ -28,6 +28,7 @@ export interface Transaction {
   shares?: number;
   price?: number;
   date: number;
+  description?: string;
 }
 
 export interface UserData {

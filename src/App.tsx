@@ -5,7 +5,8 @@ import { fetchStockPrices } from './utils/api';
 import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import { auth, googleProvider } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { loadUserDataFromDB, saveUserDataToDB } from './utils/firebaseUtils';
 
 export default function App() {
@@ -111,8 +112,8 @@ export default function App() {
         if (totalDividend > 0) {
           const newTransaction: Transaction = {
             id: Date.now().toString(),
-            date: now.toISOString(),
-            type: 'dividend',
+            date: Date.now(),
+            type: 'DIVIDEND',
             amount: totalDividend,
             description: '월간 배당금 지급'
           };
@@ -148,8 +149,8 @@ export default function App() {
     const stockInfo = stocks.find(s => s.ticker === ticker);
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
-      type: 'buy',
+      date: Date.now(),
+      type: 'BUY',
       amount: cost,
       description: `${stockInfo?.name} 1주 매수`
     };
@@ -198,8 +199,8 @@ export default function App() {
     
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
-      type: 'sell',
+      date: Date.now(),
+      type: 'SELL',
       amount: price,
       description: `${stockInfo?.name} 1주 매도 ${profit > 0 ? '(수익)' : profit < 0 ? '(손실)' : ''}`
     };
@@ -241,8 +242,8 @@ export default function App() {
 
     const newTransaction: Transaction = {
       id: Date.now().toString(),
-      date: new Date().toISOString(),
-      type: 'deposit',
+      date: Date.now(),
+      type: 'DEPOSIT',
       amount: amount,
       description: '용돈 입금'
     };
@@ -486,18 +487,18 @@ export default function App() {
             ) : (
               userData.transactions.map(tx => (
                 <div key={tx.id} className="glass-panel p-4 rounded-2xl flex items-center justify-between border-l-4 border-l-transparent" 
-                  style={{ borderLeftColor: tx.type === 'buy' ? '#ef4444' : tx.type === 'sell' ? '#3b82f6' : tx.type === 'dividend' ? '#10b981' : '#8b5cf6' }}>
+                  style={{ borderLeftColor: tx.type === 'BUY' ? '#ef4444' : tx.type === 'SELL' ? '#3b82f6' : tx.type === 'DIVIDEND' ? '#10b981' : '#8b5cf6' }}>
                   <div>
                     <p className="font-semibold">{tx.description}</p>
                     <p className="text-xs text-slate-400 mt-1">{new Date(tx.date).toLocaleString('ko-KR')}</p>
                   </div>
                   <div className="text-right">
                     <p className={clsx("font-bold", 
-                      tx.type === 'buy' ? 'text-danger' : 
-                      tx.type === 'sell' ? 'text-blue-400' : 
-                      tx.type === 'dividend' ? 'text-emerald-400' : 'text-purple-400'
+                      tx.type === 'BUY' ? 'text-danger' : 
+                      tx.type === 'SELL' ? 'text-blue-400' : 
+                      tx.type === 'DIVIDEND' ? 'text-emerald-400' : 'text-purple-400'
                     )}>
-                      {tx.type === 'buy' ? '-' : '+'}{tx.amount.toLocaleString()}원
+                      {tx.type === 'BUY' ? '-' : '+'}{tx.amount.toLocaleString()}원
                     </p>
                   </div>
                 </div>
