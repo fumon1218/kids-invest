@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, STOCKS_STORAGE_KEY, defaultUserData } from './data';
-import { Stock, UserData, StockPrice, Transaction, PortfolioItem } from './types';
+import type { Stock, UserData, StockPrice, Transaction, PortfolioItem } from './types';
 import { fetchStockPrices } from './utils/api';
-import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, Settings, RefreshCw, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function App() {

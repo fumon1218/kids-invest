@@ -1,4 +1,4 @@
-import { StockPrice } from '../types';
+import type { StockPrice } from '../types';
 
 // 야후 파이낸스 API에서 주가 정보를 가져오는 유틸리티 (CORS 프록시 사용)
 export const fetchStockPrices = async (tickers: string[]): Promise<Record<string, StockPrice>> => {
