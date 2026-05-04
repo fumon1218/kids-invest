@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, defaultUserData } from './data';
-import type { Stock, UserData, StockPrice, Transaction, Mission } from './types';
+import type { Stock, UserData, StockPrice, Transaction, Mission, Goal } from './types';
 import { fetchStockPrices } from './utils/api';
-import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy, Lightbulb, BookOpen, Newspaper } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy, Lightbulb, BookOpen, Newspaper, Target, Sparkles, Calculator, ShieldAlert } from 'lucide-react';
 import clsx from 'clsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { auth, googleProvider } from './firebase';
@@ -18,6 +18,8 @@ export default function App() {
   const [livePrices, setLivePrices] = useState<Record<string, StockPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'portfolio' | 'history' | 'missions' | 'education'>('portfolio');
+  const [calcMonthly, setCalcMonthly] = useState(10000);
+  const [calcYears, setCalcYears] = useState(10);
 
   // 기본 종목과 사용자 추가 종목 합치기
   const allStocks = [...initialStocks, ...(userData.customStocks || [])];
@@ -139,8 +141,60 @@ export default function App() {
     if (Object.keys(livePrices).length > 0) {
       checkAndPayDividends();
       recordAssetHistory();
+      checkBadges();
     }
-  }, [livePrices, userData.lastDividendMonth, userData.portfolio, allStocks, isAuthChecking]);
+  }, [livePrices, userData.lastDividendMonth, userData.portfolio, allStocks, isAuthChecking, userData.transactions]);
+
+  // 배지 획득 로직
+  const checkBadges = () => {
+    const newBadges = [...(userData.badges || [])];
+    const { currentValue } = calculateTotalReturn();
+    const totalAsset = userData.balance + currentValue;
+    
+    const conditions = [
+      { id: 'first_invest', title: '초보 투자자', desc: '첫 주식 매수 성공!', cond: userData.transactions.some(t => t.type === 'BUY') },
+      { id: 'saving_king', title: '저축왕', desc: '보유 현금 10만원 돌파!', cond: userData.balance >= 100000 },
+      { id: 'dividend_master', title: '배당금 컬렉터', desc: '첫 배당금 수령!', cond: userData.transactions.some(t => t.type === 'DIVIDEND') },
+      { id: 'quiz_hero', title: '퀴즈 히어로', desc: '경제 퀴즈 첫 정답!', cond: userData.transactions.some(t => t.description?.includes('퀴즈')) },
+      { id: 'asset_rich', title: '꼬마 부자', desc: '총 자산 100만원 돌파!', cond: totalAsset >= 1000000 },
+    ];
+
+    let updated = false;
+    conditions.forEach(c => {
+      if (c.cond && !newBadges.includes(c.id)) {
+        newBadges.push(c.id);
+        updated = true;
+        alert(`🏆 새로운 배지를 획득했습니다: [${c.title}]\n${c.desc}`);
+      }
+    });
+
+    if (updated) {
+      setUserData(prev => ({ ...prev, badges: newBadges }));
+    }
+  };
+
+  // 목표 추가
+  const addGoal = () => {
+    const title = prompt('이루고 싶은 목표를 적어주세요! (예: 닌텐도 스위치 사기)', '');
+    if (!title) return;
+    const amountStr = prompt('목표 금액(원)을 입력하세요', '300000');
+    const targetAmount = parseInt(amountStr || '0', 10);
+    if (isNaN(targetAmount) || targetAmount <= 0) return;
+
+    const newGoal: Goal = {
+      id: Date.now().toString(),
+      title,
+      targetAmount,
+      createdAt: Date.now()
+    };
+    setUserData(prev => ({ ...prev, goals: [...(prev.goals || []), newGoal] }));
+  };
+
+  const deleteGoal = (id: string) => {
+    if (confirm('이 목표를 삭제하시겠습니까?')) {
+      setUserData(prev => ({ ...prev, goals: (prev.goals || []).filter(g => g.id !== id) }));
+    }
+  };
 
   // 자산 히스토리 기록
   const recordAssetHistory = () => {
@@ -396,11 +450,11 @@ export default function App() {
   const handleResetData = () => {
     if (confirm('모든 투자 데이터와 보유 현금을 완전히 초기화(0원)하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
       if (user) {
-        saveUserDataToDB(user.uid, { ...defaultUserData, balance: 0, customStocks: [] });
+        saveUserDataToDB(user.uid, { ...defaultUserData, balance: 0, customStocks: [], missions: [], badges: [], goals: [], assetHistory: [] });
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
-      setUserData({ ...defaultUserData, balance: 0, customStocks: [] });
+      setUserData({ ...defaultUserData, balance: 0, customStocks: [], missions: [], badges: [], goals: [], assetHistory: [] });
       alert('모든 데이터가 초기화되었습니다. 용돈을 입금하여 투자를 다시 시작하세요!');
     }
   };
@@ -602,6 +656,76 @@ export default function App() {
             </button>
           </div>
         </div>
+
+        {/* Risk Education Card */}
+        {returns.profitPercent < -5 && (
+          <div className="bg-danger/10 border border-danger/20 p-4 rounded-2xl flex gap-3 items-start animate-pulse">
+            <ShieldAlert className="w-6 h-6 text-danger shrink-0 mt-0.5" />
+            <div>
+              <p className="text-danger font-bold text-sm">걱정 마세요! 시장은 원래 오르락내리락해요.</p>
+              <p className="text-xs text-danger/80 mt-1 leading-relaxed">
+                지금 수익률이 조금 떨어졌지만, 튼튼한 기업에 투자했다면 기다림도 투자의 일부예요. 
+                부모님과 함께 이 기업의 미래에 대해 다시 이야기해볼까요?
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Goals Section */}
+        <div className="glass-panel p-5 rounded-3xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-sm flex items-center gap-2 text-blue-400">
+              <Target className="w-4 h-4" /> 나의 꿈 목표함
+            </h3>
+            <button onClick={addGoal} className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full font-bold">+ 목표 추가</button>
+          </div>
+          <div className="space-y-4">
+            {(userData.goals || []).length === 0 ? (
+              <p className="text-center text-xs text-slate-500 py-2">사고 싶은 것이나 이루고 싶은 목표를 등록해봐요!</p>
+            ) : (
+              (userData.goals || []).map(goal => {
+                const total = userData.balance + returns.currentValue;
+                const progress = Math.min(100, (total / goal.targetAmount) * 100);
+                return (
+                  <div key={goal.id} className="space-y-2">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span>{goal.title}</span>
+                      <div className="flex gap-2">
+                        <span>{Math.floor(progress)}%</span>
+                        <button onClick={() => deleteGoal(goal.id)} className="text-slate-600 hover:text-danger">×</button>
+                      </div>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Badges Preview */}
+        {(userData.badges || []).length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {userData.badges?.map(badgeId => {
+              const badgeIcons: Record<string, any> = {
+                'first_invest': '🐣', 'saving_king': '💰', 'dividend_master': '🍯', 'quiz_hero': '🧠', 'asset_rich': '💎'
+              };
+              return (
+                <div key={badgeId} className="shrink-0 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                  <span className="text-sm">{badgeIcons[badgeId] || '🏆'}</span>
+                  <span className="text-[10px] font-bold text-slate-300">
+                    {badgeId === 'first_invest' ? '초보 투자자' : 
+                     badgeId === 'saving_king' ? '저축왕' : 
+                     badgeId === 'dividend_master' ? '배당금 컬렉터' : 
+                     badgeId === 'quiz_hero' ? '퀴즈 히어로' : '꼬마 부자'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Portfolio Allocation Chart */}
         {activePieData.length > 0 && (
@@ -958,13 +1082,77 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* Compound Interest Calculator */}
+            <div className="glass-panel p-5 rounded-3xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-purple-400 mb-4">
+                <Calculator className="w-5 h-5" /> 복리의 마법 계산기
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">매달 저축액</span>
+                    <span className="text-white font-bold">{calcMonthly.toLocaleString()}원</span>
+                  </div>
+                  <input type="range" min="1000" max="100000" step="1000" value={calcMonthly} onChange={(e) => setCalcMonthly(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">투자 기간</span>
+                    <span className="text-white font-bold">{calcYears}년</span>
+                  </div>
+                  <input type="range" min="1" max="30" step="1" value={calcYears} onChange={(e) => setCalcYears(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" />
+                </div>
+                
+                {(() => {
+                  const r = 0.08 / 12; // 연 8% 수익률 가정
+                  const n = calcYears * 12;
+                  const futureValue = calcMonthly * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+                  const totalInvested = calcMonthly * n;
+                  const profit = futureValue - totalInvested;
+                  
+                  return (
+                    <div className="pt-4 border-t border-white/5 space-y-2">
+                      <div className="flex justify-between items-end">
+                        <span className="text-[10px] text-slate-400">예상 최종 자산 (연 8% 수익 가정)</span>
+                        <span className="text-lg font-black text-white">{Math.floor(futureValue).toLocaleString()}원</span>
+                      </div>
+                      <p className="text-[10px] text-purple-400 text-center">원금 {totalInvested.toLocaleString()}원이 시간이 지나 {Math.floor(profit).toLocaleString()}원의 수익을 만들었어요! ✨</p>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Achievement Badges Section */}
+            <div className="glass-panel p-5 rounded-3xl">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-indigo-400 mb-4">
+                <Sparkles className="w-5 h-5" /> 나의 성취 배지함
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: 'first_invest', title: '초보 투자자', icon: '🐣' },
+                  { id: 'saving_king', title: '저축왕', icon: '💰' },
+                  { id: 'dividend_master', title: '배당금 컬렉터', icon: '🍯' },
+                  { id: 'quiz_hero', title: '퀴즈 히어로', icon: '🧠' },
+                  { id: 'asset_rich', title: '꼬마 부자', icon: '💎' },
+                  { id: 'hidden', title: '준비 중...', icon: '🔒' }
+                ].map(b => (
+                  <div key={b.id} className={clsx("flex flex-col items-center gap-1 p-2 rounded-2xl border transition", 
+                    userData.badges?.includes(b.id) ? "bg-white/5 border-white/10" : "opacity-20 border-transparent grayscale")}>
+                    <span className="text-3xl">{b.icon}</span>
+                    <span className="text-[10px] font-medium text-slate-400">{b.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </main>
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.7.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v2.0.0</span>
       </div>
     </div>
   );

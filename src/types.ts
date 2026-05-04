@@ -41,6 +41,15 @@ export interface UserData {
   missions?: Mission[];
   assetHistory?: AssetHistoryItem[];
   lastQuizDate?: string; // YYYY-MM-DD
+  badges?: string[];
+  goals?: Goal[];
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  targetAmount: number;
+  createdAt: number;
 }
 
 export interface AssetHistoryItem {
