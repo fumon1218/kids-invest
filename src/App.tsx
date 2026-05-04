@@ -191,6 +191,57 @@ export default function App() {
     });
   };
 
+  // 최대 매수 함수 (All-in)
+  const buyMaxStock = (ticker: string, price: number) => {
+    const maxShares = Math.floor(userData.balance / price);
+    if (maxShares <= 0) {
+      alert('보유 현금이 부족하여 1주도 살 수 없습니다.');
+      return;
+    }
+    
+    const cost = maxShares * price;
+    const stockInfo = allStocks.find((s: Stock) => s.ticker === ticker);
+    const note = prompt(`${stockInfo?.name}을(를) ${maxShares}주 최대 매수하는 이유를 적어주세요!`, '') || '';
+    
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date: Date.now(),
+      type: 'BUY',
+      amount: cost,
+      description: `${stockInfo?.name} ${maxShares}주 최대 매수`,
+      note: note
+    };
+
+    setUserData(prev => {
+      const newPortfolio = [...prev.portfolio];
+      const existingItemIndex = newPortfolio.findIndex(item => item.ticker === ticker);
+      
+      if (existingItemIndex >= 0) {
+        const item = newPortfolio[existingItemIndex];
+        const newTotalCost = (item.shares * item.averagePrice) + cost;
+        const newShares = item.shares + maxShares;
+        newPortfolio[existingItemIndex] = {
+          ...item,
+          shares: newShares,
+          averagePrice: newTotalCost / newShares
+        };
+      } else {
+        newPortfolio.push({
+          ticker,
+          shares: maxShares,
+          averagePrice: price
+        });
+      }
+
+      return {
+        ...prev,
+        balance: prev.balance - cost,
+        portfolio: newPortfolio,
+        transactions: [newTransaction, ...prev.transactions]
+      };
+    });
+  };
+
   // 매도 함수
   const sellStock = (ticker: string, price: number) => {
     const portfolioItem = userData.portfolio.find(item => item.ticker === ticker);
@@ -631,20 +682,29 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => live && buyStock(stock.ticker, live.price)}
-                      disabled={!live || live.price === 0 || userData.balance < live.price}
-                      className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-30 disabled:cursor-not-allowed transition border border-danger/20"
-                    >
-                      매수 (사기)
-                    </button>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => live && buyStock(stock.ticker, live.price)}
+                        disabled={!live || live.price === 0 || userData.balance < live.price}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-danger/10 text-danger hover:bg-danger/20 disabled:opacity-30 disabled:cursor-not-allowed transition border border-danger/20"
+                      >
+                        1주 매수
+                      </button>
+                      <button 
+                        onClick={() => live && buyMaxStock(stock.ticker, live.price)}
+                        disabled={!live || live.price === 0 || userData.balance < live.price}
+                        className="flex-1 py-2.5 rounded-xl font-bold text-xs bg-danger text-white hover:bg-danger-hover disabled:opacity-30 disabled:cursor-not-allowed transition shadow-lg shadow-danger/20"
+                      >
+                        최대 매수
+                      </button>
+                    </div>
                     <button 
                       onClick={() => live && sellStock(stock.ticker, live.price)}
                       disabled={!live || live.price === 0 || !portfolioItem || portfolioItem.shares <= 0}
-                      className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition border border-blue-500/20"
+                      className="w-full py-2.5 rounded-xl font-bold text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition border border-blue-500/20"
                     >
-                      매도 (팔기)
+                      1주 매도 (팔기)
                     </button>
                   </div>
                 </div>
@@ -748,7 +808,7 @@ export default function App() {
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.5.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.6.0</span>
       </div>
     </div>
   );
