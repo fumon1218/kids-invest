@@ -1,57 +1,67 @@
 import type { StockPrice } from '../types';
 
+// 각 요청 사이에 딜레이를 주기 위한 유틸리티 함수
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const fetchStockPrices = async (tickers: string[]): Promise<Record<string, StockPrice>> => {
   const prices: Record<string, StockPrice> = {};
   if (!tickers || tickers.length === 0) return prices;
   
   try {
-    const symbols = tickers.join(',');
-    const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-    
-    const proxies = [
-      `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
-      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-    ];
+    for (let i = 0; i < tickers.length; i++) {
+      const ticker = tickers[i];
+      const targetUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
+      
+      const proxies = [
+        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+        `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+      ];
 
-    let success = false;
-    
-    for (const proxyUrl of proxies) {
-      if (success) break;
-      try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) continue;
-        
-        let data = await response.json();
-        // allorigins 처리
-        if (data.contents) {
-          data = JSON.parse(data.contents);
-        }
-        
-        const results = data.quoteResponse?.result;
-        if (!results || !Array.isArray(results)) continue;
+      let success = false;
+      
+      for (const proxyUrl of proxies) {
+        if (success) break;
+        try {
+          const response = await fetch(proxyUrl);
+          if (!response.ok) continue;
+          
+          let data = await response.json();
+          // allorigins의 경우 contents 안에 문자열로 들어있음
+          if (data.contents) {
+            data = JSON.parse(data.contents);
+          }
+          
+          const result = data.chart?.result?.[0];
+          if (!result) continue;
 
-        results.forEach((item: any) => {
-          prices[item.symbol] = {
-            ticker: item.symbol,
-            price: item.regularMarketPrice,
-            change: item.regularMarketChange,
-            changePercent: item.regularMarketChangePercent,
-            previousClose: item.regularMarketPreviousClose
+          const meta = result.meta;
+          const currentPrice = meta.regularMarketPrice;
+          const previousClose = meta.chartPreviousClose;
+          const change = currentPrice - previousClose;
+          const changePercent = (change / previousClose) * 100;
+          
+          prices[ticker] = {
+            ticker,
+            price: currentPrice,
+            change: change,
+            changePercent: changePercent,
+            previousClose: previousClose
           };
-        });
-        
-        success = true;
-      } catch (err) {
-        // 다음 프록시 시도
+          success = true;
+        } catch (err) {
+          // 에러 무시하고 다음 프록시 시도
+        }
       }
-    }
 
-    // 실패한 종목은 임시값 0 처리
-    tickers.forEach(ticker => {
-      if (!prices[ticker]) {
+      if (!success) {
         prices[ticker] = { ticker, price: 0, change: 0, changePercent: 0, previousClose: 0 };
       }
-    });
+
+      // 프록시 서버의 Rate-limit(동시접속 차단) 방지를 위해 다음 종목 요청 전 1초 대기 (마지막 종목 제외)
+      if (i < tickers.length - 1) {
+        await delay(1000);
+      }
+    }
 
     return prices;
   } catch (error) {
