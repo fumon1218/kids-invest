@@ -148,12 +148,15 @@ export default function App() {
     }
     
     const stockInfo = stocks.find(s => s.ticker === ticker);
+    const note = prompt(`${stockInfo?.name}을(를) 매수하는 이유를 적어주세요!`, '') || '';
+    
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       date: Date.now(),
       type: 'BUY',
       amount: cost,
-      description: `${stockInfo?.name} 1주 매수`
+      description: `${stockInfo?.name} 1주 매수`,
+      note: note
     };
 
     setUserData(prev => {
@@ -197,13 +200,15 @@ export default function App() {
 
     const stockInfo = stocks.find(s => s.ticker === ticker);
     const profit = price - portfolioItem.averagePrice;
+    const note = prompt(`${stockInfo?.name}을(를) 매도하는 이유를 적어주세요!`, '') || '';
     
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       date: Date.now(),
       type: 'SELL',
       amount: price,
-      description: `${stockInfo?.name} 1주 매도 ${profit > 0 ? '(수익)' : profit < 0 ? '(손실)' : ''}`
+      description: `${stockInfo?.name} 1주 매도 ${profit > 0 ? '(수익)' : profit < 0 ? '(손실)' : ''}`,
+      note: note
     };
 
     setUserData(prev => {
@@ -411,12 +416,12 @@ export default function App() {
                     dataKey="value"
                     stroke="none"
                   >
-                    {activePieData.map((entry, index) => (
+                    {activePieData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <RechartsTooltip 
-                    formatter={(value: number) => [`${value.toLocaleString()}원`, '평가 금액']}
+                    formatter={(value: any) => [value.toLocaleString() + '원', '평가 금액']}
                     contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', color: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
                     itemStyle={{ color: '#f8fafc', fontWeight: 'bold' }}
                   />
@@ -558,6 +563,7 @@ export default function App() {
                   style={{ borderLeftColor: tx.type === 'BUY' ? '#ef4444' : tx.type === 'SELL' ? '#3b82f6' : tx.type === 'DIVIDEND' ? '#10b981' : '#8b5cf6' }}>
                   <div>
                     <p className="font-semibold">{tx.description}</p>
+                    {tx.note && <p className="text-sm text-slate-300 mt-1 italic">" {tx.note} "</p>}
                     <p className="text-xs text-slate-400 mt-1">{new Date(tx.date).toLocaleString('ko-KR')}</p>
                   </div>
                   <div className="text-right">
@@ -578,7 +584,7 @@ export default function App() {
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.2.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.3.0</span>
       </div>
     </div>
   );

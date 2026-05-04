@@ -29,6 +29,7 @@ export interface Transaction {
   price?: number;
   date: number;
   description?: string;
+  note?: string;
 }
 
 export interface UserData {
