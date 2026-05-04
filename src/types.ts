@@ -38,4 +38,13 @@ export interface UserData {
   transactions: Transaction[];
   lastDividendMonth: number; // e.g., 202605
   customStocks?: Stock[];
+  missions?: Mission[];
+}
+
+export interface Mission {
+  id: string;
+  title: string;
+  reward: number;
+  completed: boolean;
+  createdAt: number;
 }

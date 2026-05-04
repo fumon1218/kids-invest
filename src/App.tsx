@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { initialStocks, STORAGE_KEY, defaultUserData } from './data';
 import type { Stock, UserData, StockPrice, Transaction } from './types';
 import { fetchStockPrices } from './utils/api';
-import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, PlusCircle, Briefcase, History, RefreshCw, AlertCircle, LogOut, PieChart as PieChartIcon, CheckCircle2, Trophy } from 'lucide-react';
 import clsx from 'clsx';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { auth, googleProvider } from './firebase';
@@ -17,7 +17,7 @@ export default function App() {
   const [userData, setUserData] = useState<UserData>(defaultUserData);
   const [livePrices, setLivePrices] = useState<Record<string, StockPrice>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'history'>('portfolio');
+  const [activeTab, setActiveTab] = useState<'portfolio' | 'history' | 'missions'>('portfolio');
 
   // 기본 종목과 사용자 추가 종목 합치기
   const allStocks = [...initialStocks, ...(userData.customStocks || [])];
@@ -323,6 +323,65 @@ export default function App() {
     alert(`'${name}' 종목이 추가되었습니다! 주가를 불러오는 중입니다...`);
   };
 
+  // 미션 추가 함수
+  const addMission = () => {
+    const title = prompt('자녀에게 줄 새로운 미션 내용을 적어주세요!\n(예: 경제 관련 책 10페이지 읽기)', '');
+    if (!title) return;
+    
+    const rewardStr = prompt('미션 완료 시 지급할 보상 금액(원)을 입력하세요', '1000');
+    const reward = parseInt(rewardStr || '0', 10);
+    if (isNaN(reward) || reward < 0) return;
+
+    const newMission: Mission = {
+      id: Date.now().toString(),
+      title,
+      reward,
+      completed: false,
+      createdAt: Date.now()
+    };
+
+    setUserData(prev => ({
+      ...prev,
+      missions: [newMission, ...(prev.missions || [])]
+    }));
+  };
+
+  // 미션 완료 처리
+  const completeMission = (missionId: string) => {
+    const mission = userData.missions?.find(m => m.id === missionId);
+    if (!mission || mission.completed) return;
+
+    if (!confirm(`'${mission.title}' 미션을 완료하고 ${mission.reward.toLocaleString()}원을 보상으로 받으시겠습니까?`)) return;
+
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date: Date.now(),
+      type: 'DEPOSIT',
+      amount: mission.reward,
+      description: `미션 보상: ${mission.title}`
+    };
+
+    setUserData(prev => ({
+      ...prev,
+      balance: prev.balance + mission.reward,
+      transactions: [newTransaction, ...prev.transactions],
+      missions: (prev.missions || []).map(m => 
+        m.id === missionId ? { ...m, completed: true } : m
+      )
+    }));
+    
+    alert(`🎉 대단해요! 미션 완료 보상으로 ${mission.reward.toLocaleString()}원이 입금되었습니다!`);
+  };
+
+  // 미션 삭제
+  const deleteMission = (missionId: string) => {
+    if (!confirm('이 미션을 삭제하시겠습니까?')) return;
+    setUserData(prev => ({
+      ...prev,
+      missions: (prev.missions || []).filter(m => m.id !== missionId)
+    }));
+  };
+
   const returns = calculateTotalReturn();
 
   // 포트폴리오 비중 차트 데이터 생성
@@ -494,6 +553,12 @@ export default function App() {
           >
             <History className="w-4 h-4" /> 거래 내역
           </button>
+          <button 
+            onClick={() => setActiveTab('missions')}
+            className={clsx("flex-1 py-3 text-sm font-medium rounded-xl flex items-center justify-center gap-2 transition", activeTab === 'missions' ? "bg-slate-700 text-white shadow" : "text-slate-400 hover:text-slate-200")}
+          >
+            <Trophy className="w-4 h-4" /> 미션
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -617,11 +682,73 @@ export default function App() {
             )}
           </div>
         )}
+
+        {activeTab === 'missions' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-2">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                용돈 벌기 미션 🎯
+              </h3>
+              <button 
+                onClick={addMission}
+                className="text-xs bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1.5 rounded-full border border-primary/20 transition flex items-center gap-1 font-bold"
+              >
+                <PlusCircle className="w-3 h-3" /> 미션 추가
+              </button>
+            </div>
+
+            {(userData.missions || []).length === 0 ? (
+              <div className="text-center py-10 text-slate-500 bg-slate-800/30 rounded-3xl border border-dashed border-white/10">
+                <p>아직 등록된 미션이 없습니다.</p>
+                <p className="text-xs mt-2">부모님이 미션을 등록해주시면 용돈을 벌 수 있어요!</p>
+              </div>
+            ) : (
+              (userData.missions || []).map(mission => (
+                <div key={mission.id} className={clsx("glass-panel p-4 rounded-2xl flex items-center justify-between transition-all", mission.completed ? "opacity-60 grayscale-[0.5]" : "border-r-4 border-r-primary/30")}>
+                  <div className="flex items-start gap-3">
+                    <div className={clsx("p-2 rounded-xl shrink-0", mission.completed ? "bg-emerald-500/20 text-emerald-500" : "bg-slate-700 text-slate-400")}>
+                      {mission.completed ? <CheckCircle2 className="w-6 h-6" /> : <Trophy className="w-6 h-6" />}
+                    </div>
+                    <div>
+                      <p className={clsx("font-bold text-lg leading-tight", mission.completed && "line-through text-slate-500")}>
+                        {mission.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs font-bold text-blue-400">보상: {mission.reward.toLocaleString()}원</span>
+                        {mission.completed && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-bold">완료됨</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {!mission.completed && (
+                      <button 
+                        onClick={() => completeMission(mission.id)}
+                        className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-hover shadow-lg shadow-primary/20 transition"
+                      >
+                        완료하기
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => deleteMission(mission.id)}
+                      className="text-[10px] text-slate-500 hover:text-danger transition"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+            
+            <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-xs text-blue-300 leading-relaxed">
+              💡 <b>금융 교육 팁:</b> 스스로 용돈을 벌고 그 돈을 투자해보며 돈의 가치를 배워보세요!
+            </div>
+          </div>
+        )}
       </main>
 
       {/* 우측 하단 버전 정보 표시 */}
       <div className="fixed bottom-2 right-4 z-0 pointer-events-none">
-        <span className="text-[10px] font-medium text-slate-500/50">v1.4.0</span>
+        <span className="text-[10px] font-medium text-slate-500/50">v1.5.0</span>
       </div>
     </div>
   );
